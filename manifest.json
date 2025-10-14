@@ -3,7 +3,11 @@
     "name": "Clarity Lens Extension",
     "version": "1.0",
     "description": "A simple Manifest V3 extension to inject content.",
-    "permissions": ["activeTab", "scripting"],
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "geolocation"
+    ],
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
@@ -12,5 +16,28 @@
             "64": "64.png",
             "128": "128.png"
         }
-    }
+    },
+    "icons": {
+        "16": "16.png",
+        "32": "32.png",
+        "64": "64.png",
+        "128": "128.png"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "chrome_url_overrides": {
+        "newtab": "welcome_page.html"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "welcome.css",
+                "welcome.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
 }
