@@ -26,9 +26,6 @@
     "background": {
         "service_worker": "background.js"
     },
-    "chrome_url_overrides": {
-        "newtab": "welcome_page.html"
-    },
     "web_accessible_resources": [
         {
             "resources": [
