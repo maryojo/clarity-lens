@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Extension</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            width: 280px;
+            padding: 15px;
+            background-color: #f7f9fc;
+            color: #333;
+        }
+        h1 {
+            font-size: 1.2rem;
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #3b82f6;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #e0f2fe;
+            color: #0c4a6e;
+            text-align: center;
+            font-size: 0.9rem;
+            display: none; /* Hidden until success */
+        }
+    </style>
+</head>
+<body>
+    <h1>Chrome Injector</h1>
+    <button id="injectButton">Inject Greeting into Page</button>
+    <div id="message">Content Injected! Check the page.</div>
+    <script src="popup.js"></script>
+</body>
+</html>
