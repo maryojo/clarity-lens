@@ -6,7 +6,6 @@
     "permissions": [
         "activeTab",
         "scripting",
-        "geolocation",
         "storage"
     ],
     "host_permissions": [
@@ -32,7 +31,7 @@
     },
      "content_scripts": [
     {
-      "matches": ["http://localhost:3000/*"],
+      "matches": ["<all_urls>"],
       "js": ["content-script.js"],
       "run_at": "document_start"
     }

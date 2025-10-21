@@ -1,7 +1,68 @@
 document.addEventListener('DOMContentLoaded', () => {
     const injectButton = document.getElementById('injectButton');
-    const locationButton = document.getElementById('locationButton'); // Get the new button
+    const locationButton = document.getElementById('locationButton'); 
     const messageDiv = document.getElementById('message');
+    const btn = document.getElementById('summarize-btn');
+    const result = document.getElementById('summary-result');
+    const error = document.getElementById('error');
+    const loading = document.getElementById('loading');
+
+    function setLoading(on) {
+    loading.style.display = on ? 'inline' : 'none';
+    btn.disabled = on;
+    if (!on) btn.focus();
+  }
+
+  btn.addEventListener('click', async () => {
+    result.textContent = '';
+    error.textContent = '';
+    setLoading(true);
+
+    try {
+      // Get active tab
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (!tab || !tab.id) {
+          setLoading(false);
+          error.textContent = 'No active tab found.';
+          return;
+        }
+
+        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_SELECTION' }, (response) => {
+          setLoading(false);
+          
+          // Check for runtime errors first
+          if (chrome.runtime.lastError) {
+            // console.warn('sendMessage error:', chrome.runtime.lastError);
+            error.textContent = chrome.runtime.lastError.message || 'Extension not active on this page. Make sure the extension can run here.';
+            return;
+          }
+
+          // Then check for missing response
+          if (!response) {
+            error.textContent = 'No response from content script. The page may need to be refreshed.';
+            return;
+          }
+
+          if (response.status === 'ok') {
+            result.textContent = response.summary || '(empty summary)';
+          } else {
+            // Map known errors to friendly messages
+            if (response.error === 'no-selection') {
+              error.textContent = 'Please select some text on the page before summarizing.';
+            } else if (response.error === 'ai-not-available') {
+              error.textContent = 'AI Summarizer is not available in this context.';
+            } else {
+              error.textContent = response.message || 'Failed to summarize selection.';
+            }
+          }
+        });
+      });
+    } catch (err) {
+      setLoading(false);
+      error.textContent = 'Unexpected error: ' + String(err);
+    }
+  });
 
     // Restore stored location (if any) and display it safely
     chrome.storage.local.get(["location"], (res) => {
@@ -141,19 +202,10 @@ function injectContent() {
     }
 }
 
-chrome.storage.local.get(["location"], (res) => {
-    if (res && res.location) {
-        console.log("User location in popup:", res.location);
-        const loc = document.getElementById('location');
-        if (loc) {
-            loc.textContent = (typeof res.location === 'string') ? res.location : JSON.stringify(res.location);
-        }
-    }
-});
 
 
 /**
- * NEW: This function is executed inside the context of the active web page 
+ * This function is executed inside the context of the active web page 
  * and displays the Geolocation results (for the second button).
  */
 function injectLocationContent(lat, lon) {
