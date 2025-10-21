@@ -3,6 +3,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const locationButton = document.getElementById('locationButton'); // Get the new button
     const messageDiv = document.getElementById('message');
 
+    // Restore stored location (if any) and display it safely
+    chrome.storage.local.get(["location"], (res) => {
+        if (res && res.location) {
+            console.log("User location in popup:", res.location);
+            const loc = document.getElementById('location');
+            if (loc) {
+                // Prefer text to avoid injecting raw markup; stringify non-strings
+                loc.textContent = (typeof res.location === 'string') ? res.location : JSON.stringify(res.location);
+            }
+        }
+    });
+
     // Helper function to display temporary messages in the popup
     function showSuccessMessage(text = 'Content Injected! Check the page.', duration = 3000) {
         messageDiv.textContent = text;
@@ -128,6 +140,17 @@ function injectContent() {
         }, 5000);
     }
 }
+
+chrome.storage.local.get(["location"], (res) => {
+    if (res && res.location) {
+        console.log("User location in popup:", res.location);
+        const loc = document.getElementById('location');
+        if (loc) {
+            loc.textContent = (typeof res.location === 'string') ? res.location : JSON.stringify(res.location);
+        }
+    }
+});
+
 
 /**
  * NEW: This function is executed inside the context of the active web page 
