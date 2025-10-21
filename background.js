@@ -7,7 +7,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
         // Use chrome.tabs.create to open a new tab with our welcome page.
         chrome.tabs.create({
-            url: 'http://localhost:3000/welcome'
+            url: 'https://clarity-lens-web.vercel.app/welcome'
         });
     }
 });
