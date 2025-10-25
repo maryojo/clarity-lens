@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Hello Ext!</title>
+
+  <!-- ✅ Safe: Local CSS file (no remote URLs) -->
+  <link rel="stylesheet" href="welcome.css" />
+</head>
+
+<body>
+  <span class="icon">🚀</span>
+  <h1>Welcome to Hello Ext!</h1>
+  <p>
+    Thank you for installing! To fully enable the
+    <strong>"Get My Coordinates"</strong> feature,
+    please grant location access below.
+  </p>
+
+  <div class="setup-section">
+    <h3>Step 1: Grant Location Access (Optional)</h3>
+    <button id="grantLocation" class="start-button grant-button">
+      Allow Location Access
+    </button>
+    <p id="location-status"></p>
+  </div>
+
+  <div class="setup-section section-finish">
+    <h3>Step 2: Finish Setup</h3>
+    <p>Pin the blue icon to your toolbar to access the pop-up.</p>
+    <button id="closeButton" class="start-button">Start Using the Extension</button>
+  </div>
+
+  <!-- ❌ Inline <script> is blocked by default in MV3
+       ✅ Move to external JS file (e.g., welcome.js) -->
+  <script src="welcome.js"></script>
+</body>
+</html>

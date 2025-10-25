@@ -1,0 +1,66 @@
+body {
+    font-family: 'Inter', sans-serif;
+    width: 500px;
+    padding: 30px;
+    background-color: #f0f9ff; /* Light sky blue */
+    color: #1f2937;
+    text-align: center;
+    border-radius: 12px;
+    margin: 20px auto;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+h1 {
+    color: #0b9d58; /* Google Green */
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+p {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+.icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    display: block;
+}
+.setup-section {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    background-color: #e0f7fa; /* Lighter blue for sections */
+    border: 1px solid #b2ebf2;
+}
+/* Style for the 'Start Using' section, previously inline */
+.section-finish {
+    background-color: #d0f8d0; 
+    border-color: #a5d6a7;
+}
+.start-button {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #3b82f6;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.start-button:hover {
+    background-color: #2563eb;
+}
+.grant-button {
+    background-color: #ff9800; /* Orange for action */
+    margin-bottom: 10px;
+}
+.grant-button:hover {
+    background-color: #fb8c00;
+}
+#location-status {
+    font-size: 0.9rem;
+    color: #d32f2f;
+    font-weight: 500;
+}
