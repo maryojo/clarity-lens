@@ -1,80 +1,45 @@
+// popup.js
+
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Original DOM Element References ---
     const injectButton = document.getElementById('injectButton');
     const locationButton = document.getElementById('locationButton'); 
     const messageDiv = document.getElementById('message');
-    const btn = document.getElementById('summarize-btn');
-    const result = document.getElementById('summary-result');
-    const error = document.getElementById('error');
-    const loading = document.getElementById('loading');
+    const summarizeBtn = document.getElementById('summarize-btn'); // Renamed 'btn' to 'summarizeBtn' for clarity
+    const summaryResultEl = document.getElementById('summary-result'); // Renamed 'result' for clarity
+    const errorEl = document.getElementById('error'); // Renamed 'error' for clarity
+    const loadingEl = document.getElementById('loading'); // Renamed 'loading' for clarity
+
+    // --- NEW DOM Element References for new features ---
+    const explainFormBtn = document.getElementById('explain-form-btn'); 
+    const formExplanationEl = document.getElementById('form-explanation-result'); 
+    const startChatBtn = document.getElementById('start-chat-btn');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    const chatInput = document.getElementById('chat-input');
+    const chatLogEl = document.getElementById('chat-log'); 
+    const chatStatusEl = document.getElementById('chat-status');
+
+    let isChatActive = false; // Manages the state of the chat session
+
+    // --- Helper Functions ---
 
     function setLoading(on) {
-    loading.style.display = on ? 'inline' : 'none';
-    btn.disabled = on;
-    if (!on) btn.focus();
-  }
-
-  btn.addEventListener('click', async () => {
-    result.textContent = '';
-    error.textContent = '';
-    setLoading(true);
-
-    try {
-      // Get active tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (!tab || !tab.id) {
-          setLoading(false);
-          error.textContent = 'No active tab found.';
-          return;
-        }
-
-        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_SELECTION' }, (response) => {
-          setLoading(false);
-          
-          // Check for runtime errors first
-          if (chrome.runtime.lastError) {
-            // console.warn('sendMessage error:', chrome.runtime.lastError);
-            error.textContent = chrome.runtime.lastError.message || 'Extension not active on this page. Make sure the extension can run here.';
-            return;
-          }
-
-          // Then check for missing response
-          if (!response) {
-            error.textContent = 'No response from content script. The page may need to be refreshed.';
-            return;
-          }
-
-          if (response.status === 'ok') {
-            result.textContent = response.summary || '(empty summary)';
-          } else {
-            // Map known errors to friendly messages
-            if (response.error === 'no-selection') {
-              error.textContent = 'Please select some text on the page before summarizing.';
-            } else if (response.error === 'ai-not-available') {
-              error.textContent = 'AI Summarizer is not available in this context.';
-            } else {
-              error.textContent = response.message || 'Failed to summarize selection.';
-            }
-          }
-        });
-      });
-    } catch (err) {
-      setLoading(false);
-      error.textContent = 'Unexpected error: ' + String(err);
+        loadingEl.style.display = on ? 'inline' : 'none';
+        // Disable all buttons while loading/processing
+        summarizeBtn.disabled = on;
+        if (explainFormBtn) explainFormBtn.disabled = on;
+        if (startChatBtn) startChatBtn.disabled = on;
+        
+        // Chat Send button depends on loading AND chat being active
+        if (chatSendBtn) chatSendBtn.disabled = on || !isChatActive;
+        
+        if (!on) summarizeBtn.focus();
     }
-  });
-
-    // Restore stored location (if any) and display it safely
-    chrome.storage.local.get(["location"], (res) => {
-        if (res && res.location) {
-            console.log("User location in popup:", res.location);
-            const loc = document.getElementById('location');
-            if (loc) {
-                // Prefer text to avoid injecting raw markup; stringify non-strings
-                loc.textContent = (typeof res.location === 'string') ? res.location : JSON.stringify(res.location);
-            }
-        }
-    });
+    
+    function displayError(message) {
+        errorEl.textContent = `Error: ${message}`;
+        setTimeout(() => errorEl.textContent = '', 5000);
+    }
 
     // Helper function to display temporary messages in the popup
     function showSuccessMessage(text = 'Content Injected! Check the page.', duration = 3000) {
@@ -85,53 +50,241 @@ document.addEventListener('DOMContentLoaded', () => {
         }, duration);
     }
 
-    // --- 1. Existing Greeting Functionality ---
-    injectButton.addEventListener('click', async () => {
-        // 1. Get the current active tab
-        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (tab && tab.id) {
-            // 2. Execute a script on the current tab using the 'scripting' permission
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                function: injectContent
-            }, () => {
-                showSuccessMessage('Greeting Injected!');
+    // Function to get the current tab ID using async/await syntax
+    async function getCurrentTabId() {
+        // chrome.tabs.query returns a Promise of an array, which we destructure.
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id) {
+            throw new Error('No active tab found.');
+        }
+        return tab.id;
+    }
+    
+    // Promisified version of chrome.tabs.sendMessage with custom error handling
+    function sendMessageAsync(tabId, message) {
+        return new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, message, (response) => {
+                // Check for runtime errors (e.g., content script not running)
+                if (chrome.runtime.lastError) {
+                    return reject(new Error(chrome.runtime.lastError.message || 'Extension not active on this page.'));
+                }
+                // Check for missing response
+                if (!response) {
+                    return reject(new Error('No response from content script. The page may need to be refreshed.'));
+                }
+                resolve(response);
             });
+        });
+    }
+
+
+    // ------------------------------------
+    // SUMMARIZE SELECTION (Corrected)
+    // ------------------------------------
+    summarizeBtn.addEventListener('click', async () => {
+        summaryResultEl.textContent = 'Processing...';
+        errorEl.textContent = '';
+        setLoading(true);
+
+        try {
+            const tabId = await getCurrentTabId();
+            
+            // Use the Promisified function
+            const response = await sendMessageAsync(tabId, { type: 'SUMMARIZE_SELECTION' });
+
+            if (response.status === 'ok') {
+                summaryResultEl.textContent = response.summary || '(empty summary)';
+            } else {
+                summaryResultEl.textContent = '';
+                // Map known errors back to friendly messages (THIS IS THE CORRECTION)
+                let friendlyMessage = response.message || 'Summarization failed.';
+                if (response.error === 'no-selection') {
+                    friendlyMessage = 'Please select some text on the page before summarizing.';
+                } else if (response.error === 'ai-not-available') {
+                    friendlyMessage = 'AI Summarizer is not available in this context.';
+                }
+                displayError(friendlyMessage);
+            }
+        } catch (err) {
+            summaryResultEl.textContent = '';
+            displayError(err.message);
+        } finally {
+            setLoading(false);
         }
     });
+
+    // ------------------------------------
+    // NEW: EXPLAIN FORM (Conversational Analysis)
+    // ------------------------------------
+    if (explainFormBtn) {
+        explainFormBtn.addEventListener('click', async () => {
+            formExplanationEl.innerHTML = '<div class="chat-message ai">Analyzing form via screenshot...</div>';
+            errorEl.textContent = '';
+            setLoading(true);
+
+            try {
+                const tabId = await getCurrentTabId();
+                const response = await sendMessageAsync(tabId, { type: 'EXPLAIN_FORM' });
+
+                if (response.status === 'ok') {
+                    formExplanationEl.textContent = response.explanation || 'Could not generate explanation.';
+                } else {
+                    formExplanationEl.textContent = '';
+                    displayError(response.message || 'Form analysis failed.');
+                }
+            } catch (err) {
+                displayError('Form analysis failed: ' + err.message);
+            } finally {
+                setLoading(false);
+            }
+        });
+    }
+
+    // ------------------------------------
+    // NEW: CHAT WITH PAGE - START
+    // ------------------------------------
+    if (startChatBtn) {
+        startChatBtn.addEventListener('click', async () => {
+            chatLogEl.innerHTML = '<div class="chat-message ai">Starting chat session...</div>';
+            errorEl.textContent = '';
+            setLoading(true); 
+            chatStatusEl.textContent = '(Starting)';
+            if (chatInput) chatInput.disabled = true;
+            if (chatSendBtn) chatSendBtn.disabled = true;
+
+            try {
+                const tabId = await getCurrentTabId();
+                const response = await sendMessageAsync(tabId, { type: 'CHAT_WITH_PAGE_START' });
+
+                if (response.status === 'ok') {
+                    isChatActive = true;
+                    chatStatusEl.textContent = '(Active)';
+                    chatLogEl.innerHTML += `<div class="chat-message ai">AI: ${response.message}</div>`;
+                    if (chatInput) chatInput.disabled = false;
+                    if (chatSendBtn) chatSendBtn.disabled = false;
+                    if (chatInput) chatInput.focus();
+                } else {
+                    throw new Error(response.message || 'Failed to start chat session.');
+                }
+            } catch (err) {
+                isChatActive = false;
+                chatStatusEl.textContent = '(Inactive)';
+                chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+            } finally {
+                setLoading(false); 
+            }
+        });
+    }
+
+    // ------------------------------------
+    // NEW: CHAT WITH PAGE - SEND
+    // ------------------------------------
+    if (chatSendBtn && chatInput) {
+        chatSendBtn.addEventListener('click', handleChatSend);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleChatSend();
+            }
+        });
+    }
+
+    async function handleChatSend() {
+        const question = chatInput.value.trim();
+        if (!question || !isChatActive) return;
+
+        // 1. Display User Message and disable input/send
+        chatLogEl.innerHTML += `<div class="chat-message user">User: ${question}</div>`;
+        chatInput.value = '';
+        chatInput.disabled = true;
+        chatSendBtn.disabled = true;
+        
+        // Scroll to bottom
+        chatLogEl.scrollTop = chatLogEl.scrollHeight; 
+
+        try {
+            const tabId = await getCurrentTabId();
+            const response = await sendMessageAsync(tabId, { type: 'CHAT_WITH_PAGE_SEND', question: question });
+
+            // 2. Display AI Response
+            if (response.status === 'ok') {
+                chatLogEl.innerHTML += `<div class="chat-message ai">AI: ${response.answer}</div>`;
+            } else {
+                throw new Error(response.message || 'Chat message failed.');
+            }
+        } catch (err) {
+            chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Communication failed. Restart chat.'}</div>`;
+        } finally {
+            chatInput.disabled = false;
+            chatSendBtn.disabled = false;
+            chatInput.focus();
+            chatLogEl.scrollTop = chatLogEl.scrollHeight;
+        }
+    }
+
+    // ------------------------------------
+    // ORIGINAL FUNCTIONS (Restored)
+    // ------------------------------------
+
+    // Restore stored location (if any) and display it safely
+    chrome.storage.local.get(["location"], (res) => {
+        const loc = document.getElementById('location');
+        if (res && res.location && loc) {
+            // Prefer text to avoid injecting raw markup; stringify non-strings
+            loc.textContent = (typeof res.location === 'string') ? res.location : JSON.stringify(res.location);
+        }
+    });
+
+    // --- 1. Existing Greeting Functionality ---
+    if (injectButton) {
+        injectButton.addEventListener('click', async () => {
+            try {
+                const tabId = await getCurrentTabId();
+                // 2. Execute a script on the current tab using the 'scripting' permission
+                chrome.scripting.executeScript({
+                    target: { tabId: tabId },
+                    function: injectContent
+                }, () => {
+                    showSuccessMessage('Greeting Injected!');
+                });
+            } catch (err) {
+                displayError('Injection failed: ' + err.message);
+            }
+        });
+    }
 
     // --- 2. NEW Geolocation Functionality (using a standard Web API) ---
-    locationButton.addEventListener('click', () => {
-        if (navigator.geolocation) {
-            
-            showSuccessMessage('Requesting location...', 5000);
-            
-            // Use the standard Geolocation Web API
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    
-                    // On success, use a Chrome API to inject the result into the page
-                    injectLocation(lat, lon);
-                },
-                (error) => {
-                    // Handle geolocation errors (like user denying permission)
-                    let errorMessage = "Could not get location.";
-                    if (error.code === error.PERMISSION_DENIED) {
-                        errorMessage = "Location permission denied. Click the 'i' icon next to the URL.";
-                    } else if (error.code === error.POSITION_UNAVAILABLE) {
-                        errorMessage = "Location information is unavailable.";
+    if (locationButton) {
+        locationButton.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                
+                showSuccessMessage('Requesting location...', 5000);
+                
+                // Use the standard Geolocation Web API
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // On success, use a Chrome API to inject the result into the page
+                        injectLocation(lat, lon);
+                    },
+                    (error) => {
+                        // Handle geolocation errors (like user denying permission)
+                        let errorMessage = "Could not get location.";
+                        if (error.code === error.PERMISSION_DENIED) {
+                            errorMessage = "Location permission denied. Click the 'i' icon next to the URL.";
+                        } else if (error.code === error.POSITION_UNAVAILABLE) {
+                            errorMessage = "Location information is unavailable.";
+                        }
+                        showSuccessMessage(`Error: ${errorMessage}`, 5000);
+                        console.error("Geolocation Error:", error);
                     }
-                    showSuccessMessage(`Error: ${errorMessage}`, 5000);
-                    console.error("Geolocation Error:", error);
-                }
-            );
-        } else {
-            showSuccessMessage('Geolocation is not supported by this browser.', 4000);
-        }
-    });
+                );
+            } else {
+                showSuccessMessage('Geolocation is not supported by this browser.', 4000);
+            }
+        });
+    }
 
     // Helper function to inject location data via chrome.scripting API
     async function injectLocation(latitude, longitude) {
@@ -149,6 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// The functions below are injected into the content script and MUST remain outside the DOMContentLoaded listener.
 
 /**
  * This function is executed inside the context of the active web page (for the first button).
