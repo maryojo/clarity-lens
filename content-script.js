@@ -89,50 +89,7 @@ async function summarizeSelectedText() {
     return summary;
 }
 
-/**
- * NEW FUNCTIONALITY: Explains a form via a multimodal prompt.
- * This function should be executed from the Service Worker, as it uses chrome.tabs.captureVisibleTab.
- */
-async function explainForm() {
-    // We'll rely on the dedicated 'chrome.ai' API in the Service Worker/Background Script
-    // and assume the image is passed in from a successful capture (or captured here if in the service worker)
-    
-    // To make this work in a content-script for demonstration:
-    if (!('LanguageModel' in window)) {
-        throw new Error('ai-not-available');
-    }
-    
-    const availability = await LanguageModel.availability();
-    if (availability !== 'available') {
-         throw new Error('ai-unavailable-requirements');
-    }
-    
-    // Get the screenshot data (if we were in a privileged context like the Service Worker)
-    // For a content script, we must send a message to the Service Worker to do the capture
-    // and then send the image back. We will simulate the capture here for the flow.
-    const screenshot = await capturePageScreenshot(); // This is the function that needs to be moved to the Service Worker
 
-    const ai = await chrome.ai.getLanguageModel(); 
-
-    // The core of the functionality: a multimodal prompt
-    const promptText = `
-      You are a friendly, conversational government form assistant. 
-      Analyze the visual information from this form and answer the following questions conversationally.
-      1. What are the key pieces of information needed?
-      2. What is the goal of this form (its purpose)?
-      3. What are the most common mistakes people make when filling this out?
-      Explain in simple terms as if guiding a friend.
-    `;
-
-    const analysis = await ai.prompt({
-        prompt: promptText,
-        image: {
-            dataUri: screenshot,
-        }
-    });
-
-    return analysis.text;
-}
 
 
 // --- 3) Message handlers from popup/background
@@ -163,17 +120,59 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // NEW HANDLER: EXPLAIN_FORM (Conversation with Multimodal Input)
   if (request?.type === 'EXPLAIN_FORM') {
       (async () => {
-        try {
-          const explanation = await explainForm();
-          sendResponse({ status: 'ok', explanation: explanation });
-        } catch (err) {
-          const code = err?.message || 'unknown';
-          sendResponse({ status: 'error', error: code, message: `Form Explanation failed: ${code}` });
+     
+ const screenshot = await capturePageScreenshot(); 
+    
+    const ai = await chrome.ai.getLanguageModel(); 
+    
+    const promptText = `
+      You are a friendly, conversational government form assistant.
+      Analyze the visual information from this form and answer the following questions conversationally.
+      1. What are the key pieces of information needed?
+      2. What is the goal of this form (its purpose)?
+      3. What are the most common mistakes people make when filling this out?
+      Explain in simple terms as if guiding a friend.
+    `;
+
+    const analysis = await ai.prompt({
+        prompt: promptText,
+        image: {
+            dataUri: screenshot,
         }
+    });
+
+    return analysis.text;
       })();
 
     return true; 
   }
+
+
+
+// 💡 NEW IMPLEMENTATION: This is the Message Bridge to background.js
+async function capturePageScreenshot() {
+    // Send a message to the background service worker
+    const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT' }, (res) => {
+            if (chrome.runtime.lastError) {
+                // Catch internal errors (e.g., service worker inactive)
+                reject(new Error(chrome.runtime.lastError.message));
+            } else {
+                resolve(res);
+            }
+        });
+    });
+
+    if (response.status === 'ok') {
+        return response.dataUrl;
+    } else {
+        throw new Error(response.message || 'screenshot-failed');
+    }
+}
+
+// ... (summarizeSelectedText function remains the same)
+
+
 
   // NEW HANDLER: CHAT_WITH_PAGE_START (Setup the initial chat session)
   if (request?.type === 'CHAT_WITH_PAGE_START') {
@@ -183,6 +182,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 throw new Error('ai-not-available');
             }
             const availability = await LanguageModel.availability();
+
+console.log('This is my availabiltiy', availability);
             if (availability !== 'available') {
                  throw new Error('ai-unavailable-requirements');
             }
@@ -197,11 +198,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     content: `You are an expert Q&A assistant for the current web page. Use the following page content to answer questions. If you don't know the answer, say so. Page Content: """${pageText}"""`,
                 }],
                 // You can add expectedInputs/Outputs for text-only chat
+ expectedOutputs: [
+    { type: "text", languages: ["en"] }
+  ]
             });
+
+console.log('chsession', chatSession);
 
             sendResponse({ status: 'ok', message: 'Chat session started. Ask a question.' });
         } catch (err) {
             chatSession = null;
+console.log(err);
             sendResponse({ status: 'error', error: err.message || 'chat-failed-start', message: 'Could not start chat session. Check AI availability.' });
         }
     })();
@@ -218,9 +225,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             
             // Send the user's question to the existing session
             const response = await chatSession.prompt(request.question);
+		console.log('herrerer', response);
             
             // The chatSession automatically updates its internal history
-            sendResponse({ status: 'ok', answer: response.text });
+            sendResponse({ status: 'ok', answer: response });
             
         } catch (err) {
             sendResponse({ status: 'error', error: err.message || 'chat-failed-send', message: 'Chat failed. Did you click "Start Chat"?' });
