@@ -154,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const tabId = await getCurrentTabId();
+//sendPromptToAI('hello ev');
                 const response = await sendMessageAsync(tabId, { type: 'CHAT_WITH_PAGE_START' });
 
                 if (response.status === 'ok') {
@@ -302,6 +303,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// This file runs in the webpage context and sends a request
+async function sendPromptToAI(text) {
+    
+    // Send a message to the Service Worker
+    const response = await chrome.runtime.sendMessage({
+        action: 'runAIPrompt',
+        promptText: text
+    });
+    
+    if (response.status === 'success') {
+        console.log("AI Response:", response.response);
+        // Update your UI with the response.response
+        return response.response;
+    } else {
+        console.error("Failed to get AI response:", response.message);
+    }
+}
+
+// Example usage when a button is clicked
+// const userText = document.getElementById('user-input').value;
+// sendPromptToAI(userText);
 
 // The functions below are injected into the content script and MUST remain outside the DOMContentLoaded listener.
 
