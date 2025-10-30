@@ -1,28 +1,22 @@
-// popup.js
-
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Original DOM Element References ---
-    const injectButton = document.getElementById('injectButton');
     const locationButton = document.getElementById('locationButton'); 
     const messageDiv = document.getElementById('message');
-    const summarizeBtn = document.getElementById('summarize-btn'); // Renamed 'btn' to 'summarizeBtn' for clarity
-    const summaryResultEl = document.getElementById('summary-result'); // Renamed 'result' for clarity
-    const errorEl = document.getElementById('error'); // Renamed 'error' for clarity
-    const loadingEl = document.getElementById('loading'); // Renamed 'loading' for clarity
+    const summarizeBtn = document.getElementById('summarize-btn'); 
+    const summaryResultEl = document.getElementById('summary-result'); 
+    const errorEl = document.getElementById('error'); 
+    const loadingEl = document.getElementById('loading');
 
-    // --- NEW DOM Element References for new features ---
-    const explainFormBtn = document.getElementById('explain-form-btn'); 
-    const formExplanationEl = document.getElementById('form-explanation-result'); 
+    // const explainFormBtn = document.getElementById('explain-form-btn'); 
+    // const formExplanationEl = document.getElementById('form-explanation-result'); 
     const startChatBtn = document.getElementById('start-chat-btn');
     const chatSendBtn = document.getElementById('chat-send-btn');
     const chatInput = document.getElementById('chat-input');
     const chatLogEl = document.getElementById('chat-log'); 
     const chatStatusEl = document.getElementById('chat-status');
 
-    let isChatActive = false; // Manages the state of the chat session
+    let isChatActive = false; 
 
     // --- Helper Functions ---
-
     function setLoading(on) {
         loadingEl.style.display = on ? 'inline' : 'none';
         // Disable all buttons while loading/processing
@@ -39,15 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayError(message) {
         errorEl.textContent = `Error: ${message}`;
         setTimeout(() => errorEl.textContent = '', 5000);
-    }
-
-    // Helper function to display temporary messages in the popup
-    function showSuccessMessage(text = 'Content Injected! Check the page.', duration = 3000) {
-        messageDiv.textContent = text;
-        messageDiv.style.display = 'block';
-        setTimeout(() => {
-            messageDiv.style.display = 'none';
-        }, duration);
     }
 
     // Function to get the current tab ID using async/await syntax
@@ -79,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ------------------------------------
-    // SUMMARIZE SELECTION (Corrected)
+    // SUMMARIZE SELECTION
     // ------------------------------------
     summarizeBtn.addEventListener('click', async () => {
         summaryResultEl.textContent = 'Processing...';
@@ -114,34 +99,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ------------------------------------
-    // NEW: EXPLAIN FORM (Conversational Analysis)
+    // EXPLAIN FORM (Conversational Analysis)
     // ------------------------------------
-    if (explainFormBtn) {
-        explainFormBtn.addEventListener('click', async () => {
-            formExplanationEl.innerHTML = '<div class="chat-message ai">Analyzing form via screenshot...</div>';
-            errorEl.textContent = '';
-            setLoading(true);
+    // if (explainFormBtn) {
+    //     explainFormBtn.addEventListener('click', async () => {
+    //         formExplanationEl.innerHTML = '<div class="chat-message ai">Analyzing form via screenshot...</div>';
+    //         errorEl.textContent = '';
+    //         setLoading(true);
 
-            try {
-                const tabId = await getCurrentTabId();
-                const response = await sendMessageAsync(tabId, { type: 'EXPLAIN_FORM' });
+    //         try {
+    //             const tabId = await getCurrentTabId();
+    //             const response = await sendMessageAsync(tabId, { type: 'EXPLAIN_FORM' });
 
-                if (response.status === 'ok') {
-                    formExplanationEl.textContent = response.explanation || 'Could not generate explanation.';
-                } else {
-                    formExplanationEl.textContent = '';
-                    displayError(response.message || 'Form analysis failed.');
-                }
-            } catch (err) {
-                displayError('Form analysis failed: ' + err.message);
-            } finally {
-                setLoading(false);
-            }
-        });
-    }
+    //             if (response.status === 'ok') {
+    //                 formExplanationEl.textContent = response.explanation || 'Could not generate explanation.';
+    //             } else {
+    //                 formExplanationEl.textContent = '';
+    //                 displayError(response.message || 'Form analysis failed.');
+    //             }
+    //         } catch (err) {
+    //             displayError('Form analysis failed: ' + err.message);
+    //         } finally {
+    //             setLoading(false);
+    //         }
+    //     });
+    // }
 
     // ------------------------------------
-    // NEW: CHAT WITH PAGE - START
+    // CHAT WITH PAGE - START
     // ------------------------------------
     if (startChatBtn) {
         startChatBtn.addEventListener('click', async () => {
@@ -154,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const tabId = await getCurrentTabId();
-//sendPromptToAI('hello ev');
+                //sendPromptToAI('hello ev'); 
                 const response = await sendMessageAsync(tabId, { type: 'CHAT_WITH_PAGE_START' });
 
                 if (response.status === 'ok') {
@@ -178,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ------------------------------------
-    // NEW: CHAT WITH PAGE - SEND
+    // CHAT WITH PAGE - SEND
     // ------------------------------------
     if (chatSendBtn && chatInput) {
         chatSendBtn.addEventListener('click', handleChatSend);
@@ -235,30 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 1. Existing Greeting Functionality ---
-    if (injectButton) {
-        injectButton.addEventListener('click', async () => {
-            try {
-                const tabId = await getCurrentTabId();
-                // 2. Execute a script on the current tab using the 'scripting' permission
-                chrome.scripting.executeScript({
-                    target: { tabId: tabId },
-                    function: injectContent
-                }, () => {
-                    showSuccessMessage('Greeting Injected!');
-                });
-            } catch (err) {
-                displayError('Injection failed: ' + err.message);
-            }
-        });
-    }
-
     // --- 2. NEW Geolocation Functionality (using a standard Web API) ---
     if (locationButton) {
         locationButton.addEventListener('click', () => {
             if (navigator.geolocation) {
-                
-                showSuccessMessage('Requesting location...', 5000);
                 
                 // Use the standard Geolocation Web API
                 navigator.geolocation.getCurrentPosition(
@@ -277,34 +242,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else if (error.code === error.POSITION_UNAVAILABLE) {
                             errorMessage = "Location information is unavailable.";
                         }
-                        showSuccessMessage(`Error: ${errorMessage}`, 5000);
                         console.error("Geolocation Error:", error);
                     }
                 );
             } else {
-                showSuccessMessage('Geolocation is not supported by this browser.', 4000);
+                alert('Geolocation is not supported by this browser.');
             }
         });
     }
-
-    // Helper function to inject location data via chrome.scripting API
-    async function injectLocation(latitude, longitude) {
-        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (tab && tab.id) {
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                // Pass the data as arguments to the function running in the webpage
-                function: injectLocationContent,
-                args: [latitude, longitude] 
-            }, () => {
-                showSuccessMessage(`Location Injected: Lat ${latitude.toFixed(2)}, Lon ${longitude.toFixed(2)}`);
-            });
-        }
-    }
 });
 
-// This file runs in the webpage context and sends a request
+// This test file runs in the webpage context and sends a request
 async function sendPromptToAI(text) {
     
     // Send a message to the Service Worker
@@ -326,95 +274,3 @@ async function sendPromptToAI(text) {
 // const userText = document.getElementById('user-input').value;
 // sendPromptToAI(userText);
 
-// The functions below are injected into the content script and MUST remain outside the DOMContentLoaded listener.
-
-/**
- * This function is executed inside the context of the active web page (for the first button).
- */
-function injectContent() {
-    // Check if the greeting element already exists to avoid duplicates
-    let greeting = document.getElementById('chrome-ext-greeting');
-    
-    if (!greeting) {
-        greeting = document.createElement('div');
-        greeting.id = 'chrome-ext-greeting';
-        greeting.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            padding: 15px;
-            background: #10b981; /* Emerald green */
-            color: white;
-            z-index: 10000;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            font-family: 'Inter', sans-serif;
-            font-size: 16px;
-            animation: fadeIn 0.5s ease-out;
-        `;
-        
-        greeting.innerHTML = '👋 **Hello from your first Chrome Extension!**';
-        
-        // Append it to the page body
-        document.body.appendChild(greeting);
-
-        // Add a simple fade-in CSS animation directly using an injected style tag
-        if (!document.getElementById('chrome-ext-style')) {
-            const style = document.createElement('style');
-            style.id = 'chrome-ext-style';
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        // Remove the greeting after 5 seconds
-        setTimeout(() => {
-            if (document.getElementById('chrome-ext-greeting')) {
-                document.getElementById('chrome-ext-greeting').remove();
-            }
-        }, 5000);
-    }
-}
-
-
-
-/**
- * This function is executed inside the context of the active web page 
- * and displays the Geolocation results (for the second button).
- */
-function injectLocationContent(lat, lon) {
-    // Standard DOM manipulation to show the location
-    let locator = document.getElementById('chrome-ext-location');
-    
-    if (!locator) {
-        locator = document.createElement('div');
-        locator.id = 'chrome-ext-location';
-        locator.style.cssText = `
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            padding: 10px 15px;
-            background: #f59e0b; /* Amber */
-            color: white;
-            z-index: 10000;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
-        `;
-        document.body.appendChild(locator);
-    }
-
-    locator.innerHTML = `🌍 Your Location (Web API): <br>Lat: <b>${lat.toFixed(4)}</b>, Lon: <b>${lon.toFixed(4)}</b>`;
-
-    // Remove the location box after 8 seconds
-    setTimeout(() => {
-        if (document.getElementById('chrome-ext-location')) {
-            document.getElementById('chrome-ext-location').remove();
-        }
-    }, 8000);
-}
