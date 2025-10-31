@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatLogEl = document.getElementById('chat-log'); 
     const chatStatusEl = document.getElementById('chat-status');
 
+    const startActionBtn = document.getElementById('start-action-btn');
+    const actionResultEl = document.getElementById('actions-result');
+
     let isChatActive = false; 
 
     // --- Helper Functions ---
@@ -208,7 +211,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ------------------------------------
-    // ORIGINAL FUNCTIONS (Restored)
+    // GET USER ACTIONS - START
+    // ------------------------------------
+    if (startActionBtn) {
+        startActionBtn.addEventListener('click', async () => {
+            try {
+                const tabId = await getCurrentTabId();
+                //sendPromptToAI('hello ev');
+                const response = await sendMessageAsync(tabId, { type: 'GET_USER_ACTIONS' });
+
+                if (response.status === 'ok') {
+                    actionResultEl.innerHTML += `<div class="chat-message ai">AI: ${response.message}</div>`;
+                } else {
+                    throw new Error(response.message || 'Failed to start chat session.');
+                }
+            } catch (err) {
+                isChatActive = false;
+                actionResultEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+            } finally {
+                setLoading(false); 
+            }
+        });
+    }
+
+    // ------------------------------------
+    // ORIGINAL FUNCTIONS, for testing, not raelly needed
     // ------------------------------------
 
     // Restore stored location (if any) and display it safely

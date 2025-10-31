@@ -1,10 +1,9 @@
-// content-script.js
-
 // A local variable to hold the LanguageModel session for the 'Chat with Page' feature.
 // This allows the model to remember previous questions/answers (the conversation history).
 let chatSession = null; 
+let userActionsChatSession = null;
 
-// --- 1) Forward messages from the webpage to the extension background ---
+// --- 1) Forward messages from the webpage to the extension background
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (!event.data || event.data.from !== 'clarity_webapp') return;
@@ -21,23 +20,11 @@ window.addEventListener('message', (event) => {
 });
 
 
-// --- 2) Feature Functions ---
-
+// Feature Functions
 async function capturePageScreenshot() {
-  // This function should be defined in a non-content script context (e.g., background or dedicated module)
-  // OR it must use chrome.runtime.getBackgroundPage() to execute chrome.tabs.captureVisibleTab
-  // which is ONLY available in the extension's service worker/background page.
-  // For content script execution, you must send a message to the service worker to run this.
-  // HOWEVER, for simplicity and assuming this content script IS the background/service worker (which is common in older patterns, but incorrect for MV3), 
-  // we'll keep the function here but note it's best executed from the service worker.
-  
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    // NOTE: captureVisibleTab is a privileged API and cannot be called from a content script directly.
-    // It's best to call it from a Service Worker via chrome.runtime.onMessage.addListener.
-    // We will simulate it being available here for the purpose of demonstrating the AI API flow.
-    // In production, this call would fail in the content script and must be moved.
     const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
       format: 'jpeg',
       quality: 90
@@ -117,7 +104,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // NEW HANDLER: EXPLAIN_FORM (Conversation with Multimodal Input)
+  // EXPLAIN_FORM (Conversation with Multimodal Input)
   if (request?.type === 'EXPLAIN_FORM') {
       (async () => {
      
@@ -126,7 +113,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const ai = await chrome.ai.getLanguageModel(); 
     
     const promptText = `
-      You are a friendly, conversational government form assistant.
+      You are a friendly, conversational form assistant.
       Analyze the visual information from this form and answer the following questions conversationally.
       1. What are the key pieces of information needed?
       2. What is the goal of this form (its purpose)?
@@ -146,8 +133,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     return true; 
   }
-
-
 
 // 💡 NEW IMPLEMENTATION: This is the Message Bridge to background.js
 async function capturePageScreenshot() {
@@ -170,11 +155,7 @@ async function capturePageScreenshot() {
     }
 }
 
-// ... (summarizeSelectedText function remains the same)
-
-
-
-  // NEW HANDLER: CHAT_WITH_PAGE_START (Setup the initial chat session)
+  //  CHAT_WITH_PAGE_START (Setup the initial chat session)
   if (request?.type === 'CHAT_WITH_PAGE_START') {
     (async () => {
         try {
@@ -183,7 +164,7 @@ async function capturePageScreenshot() {
             }
             const availability = await LanguageModel.availability();
 
-console.log('This is my availabiltiy', availability);
+            console.log('This is my availabiltiy', availability);
             if (availability !== 'available') {
                  throw new Error('ai-unavailable-requirements');
             }
@@ -197,13 +178,10 @@ console.log('This is my availabiltiy', availability);
                     role: 'system',
                     content: `You are an expert Q&A assistant for the current web page. Use the following page content to answer questions. If you don't know the answer, say so. Page Content: """${pageText}"""`,
                 }],
-                // You can add expectedInputs/Outputs for text-only chat
- expectedOutputs: [
-    { type: "text", languages: ["en"] }
-  ]
-            });
-
-console.log('chsession', chatSession);
+                expectedOutputs: [
+                    { type: "text", languages: ["en"] }
+                  ]
+                });
 
             sendResponse({ status: 'ok', message: 'Chat session started. Ask a question.' });
         } catch (err) {
@@ -215,7 +193,7 @@ console.log(err);
     return true;
   }
   
-  // NEW HANDLER: CHAT_WITH_PAGE_SEND (Send a message to the active session)
+  // CHAT_WITH_PAGE_SEND (Send a message to the active session)
   if (request?.type === 'CHAT_WITH_PAGE_SEND') {
     (async () => {
         try {
@@ -225,13 +203,73 @@ console.log(err);
             
             // Send the user's question to the existing session
             const response = await chatSession.prompt(request.question);
-		console.log('herrerer', response);
             
             // The chatSession automatically updates its internal history
             sendResponse({ status: 'ok', answer: response });
             
         } catch (err) {
             sendResponse({ status: 'error', error: err.message || 'chat-failed-send', message: 'Chat failed. Did you click "Start Chat"?' });
+        }
+    })();
+    return true;
+  }
+
+    //  GET_USER_ACTIONS (Setup the initial chat session)
+  if (request?.type === 'GET_USER_ACTIONS') {
+    (async () => {
+        try {
+            if (!('LanguageModel' in window)) {
+                throw new Error('ai-not-available');
+            }
+            const availability = await LanguageModel.availability();
+
+            console.log('This is my availabiltiy', availability);
+            if (availability !== 'available') {
+                 throw new Error('ai-unavailable-requirements');
+            }
+            
+            // Get all visible text on the page to provide context
+            const pageText = document.body.innerText.slice(0, 10000); // Limit context size
+
+            // Create a persistent, stateful session for conversation
+            userActionsChatSession = await LanguageModel.create({
+                initialPrompts: [{
+                    role: 'system',
+                    content: `You are an expert assistant for the current web page. Use the following page content to get out action items for the page visitor. If you don't see any, say so. Page Content: """${pageText}"""`,
+                }],
+                expectedOutputs: [
+                    { type: "text", languages: ["en"] }
+                  ]
+                });
+            const response = await userActionsChatSession.prompt(`
+    You are a structured assistant that extracts and organizes action items from the web page.
+    
+    From the web page, extract and sort items into the following sections in plain text (do not include JSON or code blocks):
+    
+    MUST DO:
+    □ Action (deadline if any)
+    
+    SHOULD DO:
+    □ Action (deadline if any)
+    
+    WATCH OUT FOR:
+    ⚠️ Warning or consequence
+    
+    CONTACT INFO:
+    • Who to call/email
+    
+    Ensure that:
+    - The actions are prioritized and sorted into the correct sections based on urgency and importance.
+    - The result is clear, readable plain text, no markdown or JSON formatting.
+    
+    Web page content:
+    "${pageText}"
+  `);
+            sendResponse({ status: 'ok', message: response.answer });
+        } catch (err) {
+            userActionsChatSession = null;
+console.log(err);
+            sendResponse({ status: 'error', error: err.message || 'chat-failed-start', message: 'Could not start chat session. Check AI availability.' });
         }
     })();
     return true;
