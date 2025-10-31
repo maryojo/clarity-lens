@@ -19,6 +19,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isChatActive = false; 
 
+      const tabs = document.querySelectorAll(".icon-btn");
+  const sections = document.querySelectorAll("#content-area > div");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      // Remove active states
+      tabs.forEach((t) => t.classList.remove("active"));
+      sections.forEach((s) => s.classList.remove("active"));
+
+      // Add active state to the clicked tab and its content
+      tab.classList.add("active");
+      if (tab.id === "summarize-tab") {
+        document.getElementById("summary-section").classList.add("active");
+      } else if (tab.id === "actions-tab") {
+        document.getElementById("action-section").classList.add("active");
+      } else if (tab.id === "chat-tab") {
+        document.getElementById("chat-section").classList.add("active");
+      }
+    });
+  });
+
     // --- Helper Functions ---
     function setLoading(on) {
         loadingEl.style.display = on ? 'inline' : 'none';
@@ -158,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 isChatActive = false;
                 chatStatusEl.textContent = '(Inactive)';
-                chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+                chatLogEl.innerHTML = `<div class="chat-message">Error: ${err.message || 'Check AI availability.'}</div>`;
+                chatLogEl.classList.add('error');
             } finally {
                 setLoading(false); 
             }
@@ -201,7 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(response.message || 'Chat message failed.');
             }
         } catch (err) {
-            chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Communication failed. Restart chat.'}</div>`;
+            chatLogEl.innerHTML += `<div class="chat-message">Error: ${err.message || 'Communication failed. Restart chat.'}</div>`;
+            chatLogEl.classList.add('error');
         } finally {
             chatInput.disabled = false;
             chatSendBtn.disabled = false;
@@ -227,7 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 isChatActive = false;
-                actionResultEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+                actionResultEl.innerHTML += `<div class="chat-message">Error: ${err.message || 'Check AI availability.'}</div>`;
+                actionResultEl.classList.add('error');
             } finally {
                 setLoading(false); 
             }
