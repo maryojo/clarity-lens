@@ -244,28 +244,62 @@ console.log(err);
             const response = await userActionsChatSession.prompt(`
     You are a structured assistant that extracts and organizes action items from the web page.
     
-    From the web page, extract and sort items into the following sections in plain text (do not include JSON or code blocks):
+    From the web page, extract and sort items into the following sections in JSON, the must do actions must be stated/specified as necessary on the page:
     
-    MUST DO:
-    □ Action (deadline if any)
+As part of the short description, add where/what page element the page visitor is supposed to take that action.
+    Return ONLY valid JSON in this exact format:
+    {
+      "mustDo": [
+        {
+          "text": "Required action description",
+	"shortDescription": "Shortly describe action and where/what element to take action",
+          "deadline": "date or null",
+          "subItems": ["detail", "detail"]
+        }
+      ],
+      "shouldDo": [
+        {
+          "text": "Optional action",
+	"shortDescription": "Shortly describe action",
+          "deadline": null,
+          "subItems": []
+        }
+      ],
+      "warnings": [
+        {
+          "text": "Important warning",
+          "severity": "critical"
+        }
+      ],
+      "contacts": [
+        {
+          "type": "phone",
+          "value": "555-0123",
+          "label": "Who to call"
+        }
+      ],
+      "timeline": [
+        {
+          "text": "Event description",
+          "date": "date string",
+          "isDeadline": true
+        }
+      ]
+    }
     
-    SHOULD DO:
-    □ Action (deadline if any)
+    Rules:
+    - severity must be: "critical", "high", or "medium"
+    - type must be: "phone", "email", or "url"
+    - Use null for missing values
+    - Return valid JSON only, no markdown
     
-    WATCH OUT FOR:
-    ⚠️ Warning or consequence
     
-    CONTACT INFO:
-    • Who to call/email
-    
-    Ensure that:
-    - The actions are prioritized and sorted into the correct sections based on urgency and importance.
-    - The result is clear, readable plain text, no markdown or JSON formatting.
-    
-    Web page content:
+    This is the Web page content:
     "${pageText}"
   `);
-            sendResponse({ status: 'ok', message: response.answer });
+console.log('hallo', response);
+      
+      sendResponse({ status: 'ok', message: response });
         } catch (err) {
             userActionsChatSession = null;
 console.log(err);
