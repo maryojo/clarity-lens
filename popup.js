@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorEl = document.getElementById('error'); 
     const loadingEl = document.getElementById('loading');
 
-    // const explainFormBtn = document.getElementById('explain-form-btn'); 
+    const explainFormBtn = document.getElementById('explain-form-btn'); 
     // const formExplanationEl = document.getElementById('form-explanation-result'); 
     const startChatBtn = document.getElementById('start-chat-btn');
     const chatSendBtn = document.getElementById('chat-send-btn');
