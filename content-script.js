@@ -1,4 +1,9 @@
-// --- 1) Forward messages from the webpage to the extension background ---
+// A local variable to hold the LanguageModel session for the 'Chat with Page' feature.
+// This allows the model to remember previous questions/answers (the conversation history).
+let chatSession = null; 
+let userActionsChatSession = null;
+
+// --- 1) Forward messages from the webpage to the extension background
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (!event.data || event.data.from !== 'clarity_webapp') return;
@@ -14,8 +19,24 @@ window.addEventListener('message', (event) => {
   });
 });
 
-// --- 2) Helper: summarize selected text via Chrome AI Summarizer API ---
-// --- 2) Helper: summarize selected text via Chrome AI Summarizer API ---
+
+// Feature Functions
+async function capturePageScreenshot() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+      format: 'jpeg',
+      quality: 90
+    });
+    return dataUrl;
+  } catch (e) {
+    console.error("Error in capturePageScreenshot. Did you remember to call this from a Service Worker?", e);
+    throw new Error('screenshot-failed');
+  }
+}
+
+
 async function summarizeSelectedText() {
     // 1. Grab selection from the page context
     const selection = (window.getSelection && window.getSelection().toString && window.getSelection().toString().trim()) || '';
@@ -34,95 +55,257 @@ async function summarizeSelectedText() {
     
     // Check if the API is unusable due to requirements (hardware, sign-in, etc.)
     if (availability === 'unavailable') {
-        // You might want a more specific error message here for the user
         throw new Error('ai-unavailable-requirements');
     }
     
     // 4. Create summarizer instance
-    // Note: The 'model', 'tone', and 'length' parameters are now passed to the summarize() method 
-    // or as options to create() depending on the specific API version and intended usage.
-    // The safest approach is to create the instance and then pass options to summarize.
     const summarizerInstance = await Summarizer.create({
-        // Set your desired output language using one of the exact codes: 'en', 'es', or 'ja'
-        outputLanguage: 'en', // <-- Use 'en', 'es', or 'ja'
-        
-        // Optionally include input language, which is also a good practice
-        expectedInputLanguages: ['en', 'es', 'ja'] // List all expected input languages
-        
-        // You can also add 'type' or 'sharedContext' here if needed
-        // type: "key-points", 
+        outputLanguage: 'en',
+        expectedInputLanguages: ['en', 'es', 'ja']
     });
-
     
-    // Optional: Add a monitor for download progress if 'availability' was 'downloadable'
     if (availability === 'downloadable' || availability === 'downloading') {
-        // The .create() call might initiate the download. You can monitor it.
-        // For a simple synchronous extension, you might just rely on the next step succeeding.
         console.log(`Summarizer model state: ${availability}. A download might be in progress.`);
     }
 
     // 5. Generate summary
-    // Pass model options (tone, length) to the summarize method for built-in models.
     const summary = await summarizerInstance.summarize(selection, {
-         // The 'model' and 'tone' options might be deprecated or moved; 
-         // 'length' is the most common parameter supported here.
-         length: 'short' // short | medium | long
+         length: 'short'
     });
 
-    // `summarize` returns string or structured object depending on implementation
     return summary;
 }
 
+
+
+
 // --- 3) Message handlers from popup/background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request?.type === 'GET_GEOLOCATION') {
-    if (!('geolocation' in navigator)) {
-      sendResponse({ status: 'error', error: 'geolocation-not-supported' });
-      return;
-    }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        sendResponse({ status: 'ok', location: coords });
-      },
-      (err) => {
-        sendResponse({ status: 'error', error: err.message || err.code });
-      },
-      { enableHighAccuracy: false, timeout: 10000 }
-    );
+  // SUMMARIZE_SELECTION handler (Existing)
+  if (request?.type === 'SUMMARIZE_SELECTION') {
+      (async () => {
+        try {
+          const summary = await summarizeSelectedText();
+          const normalized = (typeof summary === 'string') ? summary : (summary?.text || JSON.stringify(summary));
+          sendResponse({ status: 'ok', summary: normalized });
+        } catch (err) {
+          const code = err?.message || 'unknown';
+          if (code === 'no-selection') {
+            sendResponse({ status: 'error', error: 'no-selection', message: 'Please select text on the page first.' });
+          } else if (code.startsWith('ai-')) {
+            sendResponse({ status: 'error', error: code, message: `AI Summarizer: ${code.replace('ai-', '')} issue.` });
+          } else {
+            sendResponse({ status: 'error', error: 'summarize-failed', message: String(err) });
+          }
+        }
+      })();
 
-    return true; // we'll call sendResponse async
+    return true;
   }
 
-  // SUMMARIZE_SELECTION handler
-  if (request?.type === 'SUMMARIZE_SELECTION') {
-    (async () => {
-      try {
-        const summary = await summarizeSelectedText();
+  // EXPLAIN_FORM (Conversation with Multimodal Input)
+  if (request?.type === 'EXPLAIN_FORM') {
+      (async () => {
+     
+ const screenshot = await capturePageScreenshot(); 
+    
+    const ai = await chrome.ai.getLanguageModel(); 
+    
+    const promptText = `
+      You are a friendly, conversational form assistant.
+      Analyze the visual information from this form and answer the following questions conversationally.
+      1. What are the key pieces of information needed?
+      2. What is the goal of this form (its purpose)?
+      3. What are the most common mistakes people make when filling this out?
+      Explain in simple terms as if guiding a friend.
+    `;
 
-        // If summarizer returns object, normalise to string if needed
-        const normalized = (typeof summary === 'string') ? summary : (summary?.text || JSON.stringify(summary));
-
-        sendResponse({ status: 'ok', summary: normalized });
-      } catch (err) {
-        // Map errors to friendly codes/messages
-        const code = err?.message || 'unknown';
-        
-        if (code === 'no-selection') {
-          sendResponse({ status: 'error', error: 'no-selection', message: 'Please select text on the page first.' });
-        } else if (code === 'ai-not-available') {
-          // This is now likely caused by the global Summarizer object missing
-          sendResponse({ status: 'error', error: 'ai-not-available', message: 'AI Summarizer API not available on this Chrome version or configuration.' });
-        } else if (code === 'ai-unavailable-requirements') {
-          // New specific error for hardware/sign-in issues
-          sendResponse({ status: 'error', error: 'ai-unavailable-requirements', message: 'AI Summarizer is unavailable. Please check your browser settings, Google sign-in status, and device requirements.' });
-        } else {
-          sendResponse({ status: 'error', error: 'summarize-failed', message: String(err) });
+    const analysis = await ai.prompt({
+        prompt: promptText,
+        image: {
+            dataUri: screenshot,
         }
-      }
-    })();
+    });
 
-    return true; // keep channel open for async response
+    return analysis.text;
+      })();
+
+    return true; 
+  }
+
+// 💡 NEW IMPLEMENTATION: This is the Message Bridge to background.js
+async function capturePageScreenshot() {
+    // Send a message to the background service worker
+    const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'CAPTURE_SCREENSHOT' }, (res) => {
+            if (chrome.runtime.lastError) {
+                // Catch internal errors (e.g., service worker inactive)
+                reject(new Error(chrome.runtime.lastError.message));
+            } else {
+                resolve(res);
+            }
+        });
+    });
+
+    if (response.status === 'ok') {
+        return response.dataUrl;
+    } else {
+        throw new Error(response.message || 'screenshot-failed');
+    }
+}
+
+  //  CHAT_WITH_PAGE_START (Setup the initial chat session)
+  if (request?.type === 'CHAT_WITH_PAGE_START') {
+    (async () => {
+        try {
+            if (!('LanguageModel' in window)) {
+                throw new Error('ai-not-available');
+            }
+            const availability = await LanguageModel.availability();
+
+            console.log('This is my availabiltiy', availability);
+            if (availability !== 'available') {
+                 throw new Error('ai-unavailable-requirements');
+            }
+            
+            // Get all visible text on the page to provide context
+            const pageText = document.body.innerText.slice(0, 10000); // Limit context size
+
+            // Create a persistent, stateful session for conversation
+            chatSession = await LanguageModel.create({
+                initialPrompts: [{
+                    role: 'system',
+                    content: `You are an expert Q&A assistant for the current web page. Use the following page content to answer questions. If you don't know the answer, say so. Page Content: """${pageText}"""`,
+                }],
+                expectedOutputs: [
+                    { type: "text", languages: ["en"] }
+                  ]
+                });
+
+            sendResponse({ status: 'ok', message: 'Chat session started. Ask a question.' });
+        } catch (err) {
+            chatSession = null;
+console.log(err);
+            sendResponse({ status: 'error', error: err.message || 'chat-failed-start', message: 'Could not start chat session. Check AI availability.' });
+        }
+    })();
+    return true;
+  }
+  
+  // CHAT_WITH_PAGE_SEND (Send a message to the active session)
+  if (request?.type === 'CHAT_WITH_PAGE_SEND') {
+    (async () => {
+        try {
+            if (!chatSession) {
+                throw new Error('chat-session-not-active');
+            }
+            
+            // Send the user's question to the existing session
+            const response = await chatSession.prompt(request.question);
+            
+            // The chatSession automatically updates its internal history
+            sendResponse({ status: 'ok', answer: response });
+            
+        } catch (err) {
+            sendResponse({ status: 'error', error: err.message || 'chat-failed-send', message: 'Chat failed. Did you click "Start Chat"?' });
+        }
+    })();
+    return true;
+  }
+
+    //  GET_USER_ACTIONS (Setup the initial chat session)
+  if (request?.type === 'GET_USER_ACTIONS') {
+    (async () => {
+        try {
+            if (!('LanguageModel' in window)) {
+                throw new Error('ai-not-available');
+            }
+            const availability = await LanguageModel.availability();
+
+            console.log('This is my availabiltiy', availability);
+            if (availability !== 'available') {
+                 throw new Error('ai-unavailable-requirements');
+            }
+            
+            // Get all visible text on the page to provide context
+            const pageText = document.body.innerText.slice(0, 10000); // Limit context size
+
+            // Create a persistent, stateful session for conversation
+            userActionsChatSession = await LanguageModel.create({
+                initialPrompts: [{
+                    role: 'system',
+                    content: `You are an expert assistant for the current web page. Use the following page content to get out action items for the page visitor. If you don't see any, say so. Page Content: """${pageText}"""`,
+                }],
+                expectedOutputs: [
+                    { type: "text", languages: ["en"] }
+                  ]
+                });
+            const response = await userActionsChatSession.prompt(`
+    You are a structured assistant that extracts and organizes action items from the web page.
+    
+    From the web page, extract and sort items into the following sections in JSON, the must do actions must be stated/specified as necessary on the page:
+    
+As part of the short description, add where/what page element the page visitor is supposed to take that action.
+    Return ONLY valid JSON in this exact format:
+    {
+      "mustDo": [
+        {
+          "text": "Required action description",
+	"shortDescription": "Shortly describe action and where/what element to take action",
+          "deadline": "date or null",
+          "subItems": ["detail", "detail"]
+        }
+      ],
+      "shouldDo": [
+        {
+          "text": "Optional action",
+	"shortDescription": "Shortly describe action",
+          "deadline": null,
+          "subItems": []
+        }
+      ],
+      "warnings": [
+        {
+          "text": "Important warning",
+          "severity": "critical"
+        }
+      ],
+      "contacts": [
+        {
+          "type": "phone",
+          "value": "555-0123",
+          "label": "Who to call"
+        }
+      ],
+      "timeline": [
+        {
+          "text": "Event description",
+          "date": "date string",
+          "isDeadline": true
+        }
+      ]
+    }
+    
+    Rules:
+    - severity must be: "critical", "high", or "medium"
+    - type must be: "phone", "email", or "url"
+    - Use null for missing values
+    - Return valid JSON only, no markdown
+    
+    
+    This is the Web page content:
+    "${pageText}"
+  `);
+console.log('hallo', response);
+      
+      sendResponse({ status: 'ok', message: response });
+        } catch (err) {
+            userActionsChatSession = null;
+console.log(err);
+            sendResponse({ status: 'error', error: err.message || 'chat-failed-start', message: 'Could not start chat session. Check AI availability.' });
+        }
+    })();
+    return true;
   }
 });

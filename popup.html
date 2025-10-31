@@ -5,23 +5,42 @@
     <title>Clarity - Popup</title>
     <style>
       body { font-family: system-ui, Arial; width: 320px; padding: 12px; }
-      #summary-result { margin-top: 12px; white-space: pre-wrap; max-height: 200px; overflow:auto; }
+      #summary-result { margin-top: 12px; white-space: pre-wrap; max-height: 200px; overflow:auto; border: 1px solid #ccc; padding: 8px; }
       #error { color: #b00020; margin-top: 8px; }
       #loading { display: none; margin-left: 8px; }
+      #chat-section { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
+      #chat-input { width: calc(100% - 70px); padding: 5px; margin-right: 5px;}
+      #chat-btn { width: 60px; }
+      .chat-message { border-bottom: 1px dotted #ccc; padding: 5px 0; }
+      .user { font-weight: bold; color: #1a73e8; }
+      .ai { color: #0f9d58; }
     </style>
   </head>
   <body>
+    <h2>Summarize</h2>
     <button id="summarize-btn">Summarize Selection</button>
     <span id="loading">⏳</span>
     <div id="error"></div>
     <div id="summary-result"></div>
+
     <hr />
-    <h1>Chrome Injector</h1>
-    <button id="injectButton">Inject Greeting into Page</button>
-    <!-- NEW BUTTON for Web API functionality -->
-    <button id="locationButton" style="margin-top: 10px; background-color: #f97316;">Get My Coordinates (Web API)</button>
-    <div id="message">Content Injected! Check the page.</div>
-    <div id="location"></div>
+
+    <h2>Actions for you</h2>
+    <button id="start-action-btn">See expected actions</button>
+    <div id="actions-result" class="chat-message ai"></div>
+
+    <hr />
+
+    <div id="chat-section">
+      <h2>Chat with Page</h2>
+      <button id="start-chat-btn">Start Chat</button> <small id="chat-status">(Inactive)</small>
+      <div style="margin-top: 8px;">
+        <input type="text" id="chat-input" placeholder="Ask a question about the page..." disabled />
+        <button id="chat-send-btn" disabled>Send</button>
+      </div>
+      <div id="chat-log"></div>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>
