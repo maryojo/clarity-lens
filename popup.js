@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startActionBtn = document.getElementById('start-action-btn');
     const actionResultEl = document.getElementById('actions-result');
+    let actionResponse;
 
     let isChatActive = false; 
 
@@ -244,7 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await sendMessageAsync(tabId, { type: 'GET_USER_ACTIONS' });
 
                 if (response.status === 'ok') {
-                    actionResultEl.innerHTML += `<div class="chat-message ai">AI: ${response.message}</div>`;
+                      actionResultEl.innerHTML = '';
+                renderActions(response.message);
                 } else {
                     throw new Error(response.message || 'Failed to start chat session.');
                 }
@@ -257,6 +259,80 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+ const icons = {
+      mustDo: "🚨",
+      shouldDo: "🟢",
+      warnings: "⚠️",
+      contacts: "📞",
+      timeline: "🗓️"
+    };
+
+    const titles = {
+      mustDo: "Must Do",
+      shouldDo: "Should Do",
+      warnings: "Warnings",
+      contacts: "Contacts",
+      timeline: "Timeline"
+    };
+
+    function renderSection(key, items) {
+      let html = `<div class="section"><h3>${icons[key]} ${titles[key]}</h3><ul>`;
+      if (!items || items.length === 0) {
+        html += `<li><em>No ${titles[key].toLowerCase()}</em></li>`;
+      } else {
+        for (const item of items) {
+          if (key === "mustDo" || key === "shouldDo") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">✅</span><span class="text">${item.text}</span></div>
+                ${item.shortDescription ? `<p class="desc">${item.shortDescription}</p>` : ""}
+                <span class="deadline">${item.deadline ? `Deadline: ${item.deadline}` : "No deadline"}</span>
+                ${item.subItems?.length ? item.subItems.map(sub => `<div class="sub-item">• ${sub}</div>`).join("") : ""}
+              </li>`;
+          } else if (key === "warnings") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">⚠️</span><span class="text">${item.text}</span></div>
+                <span class="deadline">Severity: ${item.severity || "normal"}</span>
+              </li>`;
+          } else if (key === "contacts") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">📞</span><span class="text">${item.label || item.type}</span></div>
+                <div class="contact-info">${item.type}: ${item.value}</div>
+              </li>`;
+          } else if (key === "timeline") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">🗓️</span><span class="text">${item.text}</span></div>
+                <div class="timeline-info">${item.date || "No date"} ${item.isDeadline ? "(Deadline)" : ""}</div>
+              </li>`;
+          }
+        }
+      }
+      html += `</ul></div>`;
+      return html;
+    }
+
+    function renderActions(data) {
+      const container = document.getElementById("actions-result");
+	console.log('data', data);
+
+    if (!data) {
+        container.innerHTML = '<div class="error-message">No action data received</div>';
+        return;
+    }
+
+      container.innerHTML = `
+        ${renderSection("mustDo", data.mustDo)}
+        ${renderSection("shouldDo", data.shouldDo)}
+        ${renderSection("warnings", data.warnings)}
+        ${renderSection("contacts", data.contacts)}
+        ${renderSection("timeline", data.timeline)}
+      `;
+    }
+
 
     // ------------------------------------
     // ORIGINAL FUNCTIONS, for testing, not raelly needed
