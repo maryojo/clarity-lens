@@ -21,7 +21,7 @@ Make any website easy to read. For people with dyslexia, seniors, immigrants, an
 
 ### Step 2: Install the Extension
 1. Download/Clone this repository
-   `git clone https://github.com/yourusername/claritylens.git
+   `git clone https://github.com/maryojo/claritylens.git
    cd claritylens`
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable Developer mode (toggle in top-right)
