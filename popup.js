@@ -16,8 +16,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startActionBtn = document.getElementById('start-action-btn');
     const actionResultEl = document.getElementById('actions-result');
+    let actionResponse;
 
     let isChatActive = false; 
+
+      const tabs = document.querySelectorAll(".icon-btn");
+  const sections = document.querySelectorAll("#content-area > div");
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      // Remove active states
+      tabs.forEach((t) => t.classList.remove("active"));
+      sections.forEach((s) => s.classList.remove("active"));
+
+      // Add active state to the clicked tab and its content
+      tab.classList.add("active");
+      if (tab.id === "summarize-tab") {
+        document.getElementById("summary-section").classList.add("active");
+      } else if (tab.id === "actions-tab") {
+        document.getElementById("action-section").classList.add("active");
+      } else if (tab.id === "chat-tab") {
+        document.getElementById("chat-section").classList.add("active");
+      }
+    });
+  });
 
     // --- Helper Functions ---
     function setLoading(on) {
@@ -158,7 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 isChatActive = false;
                 chatStatusEl.textContent = '(Inactive)';
-                chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+                chatLogEl.innerHTML = `<div class="chat-message">Error: ${err.message || 'Check AI availability.'}</div>`;
+                chatLogEl.classList.add('error');
             } finally {
                 setLoading(false); 
             }
@@ -201,7 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(response.message || 'Chat message failed.');
             }
         } catch (err) {
-            chatLogEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Communication failed. Restart chat.'}</div>`;
+            chatLogEl.innerHTML += `<div class="chat-message">Error: ${err.message || 'Communication failed. Restart chat.'}</div>`;
+            chatLogEl.classList.add('error');
         } finally {
             chatInput.disabled = false;
             chatSendBtn.disabled = false;
@@ -221,18 +245,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await sendMessageAsync(tabId, { type: 'GET_USER_ACTIONS' });
 
                 if (response.status === 'ok') {
-                    actionResultEl.innerHTML += `<div class="chat-message ai">AI: ${response.message}</div>`;
+                      actionResultEl.innerHTML = '';
+                renderActions(response.message);
                 } else {
                     throw new Error(response.message || 'Failed to start chat session.');
                 }
             } catch (err) {
                 isChatActive = false;
-                actionResultEl.innerHTML += `<div class="chat-message ai">AI: Error: ${err.message || 'Check AI availability.'}</div>`;
+                actionResultEl.innerHTML += `<div class="chat-message">Error: ${err.message || 'Check AI availability.'}</div>`;
+                actionResultEl.classList.add('error');
             } finally {
                 setLoading(false); 
             }
         });
     }
+
+ const icons = {
+      mustDo: "🚨",
+      shouldDo: "🟢",
+      warnings: "⚠️",
+      contacts: "📞",
+      timeline: "🗓️"
+    };
+
+    const titles = {
+      mustDo: "Must Do",
+      shouldDo: "Should Do",
+      warnings: "Warnings",
+      contacts: "Contacts",
+      timeline: "Timeline"
+    };
+
+    function renderSection(key, items) {
+      let html = `<div class="section"><h3>${icons[key]} ${titles[key]}</h3><ul>`;
+      if (!items || items.length === 0) {
+        html += `<li><em>No ${titles[key].toLowerCase()}</em></li>`;
+      } else {
+        for (const item of items) {
+          if (key === "mustDo" || key === "shouldDo") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">✅</span><span class="text">${item.text}</span></div>
+                ${item.shortDescription ? `<p class="desc">${item.shortDescription}</p>` : ""}
+                <span class="deadline">${item.deadline ? `Deadline: ${item.deadline}` : "No deadline"}</span>
+                ${item.subItems?.length ? item.subItems.map(sub => `<div class="sub-item">• ${sub}</div>`).join("") : ""}
+              </li>`;
+          } else if (key === "warnings") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">⚠️</span><span class="text">${item.text}</span></div>
+                <span class="deadline">Severity: ${item.severity || "normal"}</span>
+              </li>`;
+          } else if (key === "contacts") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">📞</span><span class="text">${item.label || item.type}</span></div>
+                <div class="contact-info">${item.type}: ${item.value}</div>
+              </li>`;
+          } else if (key === "timeline") {
+            html += `
+              <li>
+                <div class="item-header"><span class="icon">🗓️</span><span class="text">${item.text}</span></div>
+                <div class="timeline-info">${item.date || "No date"} ${item.isDeadline ? "(Deadline)" : ""}</div>
+              </li>`;
+          }
+        }
+      }
+      html += `</ul></div>`;
+      return html;
+    }
+
+    function renderActions(data) {
+      const container = document.getElementById("actions-result");
+	console.log('data', data);
+
+    if (!data) {
+        container.innerHTML = '<div class="error-message">No action data received</div>';
+        return;
+    }
+
+      container.innerHTML = `
+        ${renderSection("mustDo", data.mustDo)}
+        ${renderSection("shouldDo", data.shouldDo)}
+        ${renderSection("warnings", data.warnings)}
+        ${renderSection("contacts", data.contacts)}
+        ${renderSection("timeline", data.timeline)}
+      `;
+    }
+
 
     // ------------------------------------
     // ORIGINAL FUNCTIONS, for testing, not raelly needed

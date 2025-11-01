@@ -4,43 +4,239 @@
     <meta charset="utf-8" />
     <title>Clarity - Popup</title>
     <style>
-      body { font-family: system-ui, Arial; width: 320px; padding: 12px; }
-      #summary-result { margin-top: 12px; white-space: pre-wrap; max-height: 200px; overflow:auto; border: 1px solid #ccc; padding: 8px; }
-      #error { color: #b00020; margin-top: 8px; }
-      #loading { display: none; margin-left: 8px; }
-      #chat-section { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
-      #chat-input { width: calc(100% - 70px); padding: 5px; margin-right: 5px;}
-      #chat-btn { width: 60px; }
-      .chat-message { border-bottom: 1px dotted #ccc; padding: 5px 0; }
-      .user { font-weight: bold; color: #1a73e8; }
-      .ai { color: #0f9d58; }
+      body {
+        font-family: system-ui, Arial;
+        width: 320px;
+        padding: 12px;
+      }
+
+  .section {
+      margin-bottom: 10px;
+    }
+
+    .section h3 {
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #26709b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+
+    li {
+      background: #f5faff;
+      border-radius: 6px;
+      padding: 6px;
+      margin-bottom: 4px;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+    }
+
+    .icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .desc {
+      margin: 2px 0 4px 20px;
+      font-size: 12px;
+      color: #444;
+    }
+
+    .deadline,
+    .sub-item,
+    .contact-info,
+    .timeline-info {
+      font-size: 11px;
+      color: #777;
+      margin-left: 20px;
+    }
+
+    em {
+      color: #666;
+      font-size: 12px;
+    }
+
+      .icon-bar {
+        display: flex;
+        justify-content: space-around;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+      }
+
+      .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        color: #666;
+        transition: color 0.2s ease;
+      }
+
+      .icon-btn.active {
+        color: #8484ae;
+      }
+
+      .icon-btn svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      #content-area > div {
+        display: none;
+      }
+
+      #content-area > div.active {
+        display: block;
+      }
+
+      #summary-section,
+      #actions-section,
+      #chat-section {
+        margin-top: 12px;
+        /* white-space: pre-wrap; */
+        max-height: 400px;
+        overflow: auto;
+        border: 1px solid #ccc;
+        padding: 8px;
+      }
+
+      #error {
+        color: #b00020;
+        margin-top: 8px;
+      }
+
+      .error{
+        color: #b00020;
+      }
+
+      #loading {
+        display: none;
+        margin-left: 8px;
+      }
+
+      #chat-input {
+        width: calc(100% - 70px);
+        padding: 5px;
+        margin-right: 5px;
+      }
+
+      #chat-btn,
+      #chat-send-btn {
+        width: 60px;
+      }
+
+      .chat-message {
+        border-bottom: 1px dotted #ccc;
+        padding: 5px 0;
+      }
+
+      .action-btn {
+        background-color: #46c9bd;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .user {
+        font-weight: bold;
+        color: #22716a;
+      }
+
+      .ai {
+        color: rgb(16, 16, 16);
+      }
     </style>
   </head>
   <body>
-    <h2>Summarize</h2>
-    <button id="summarize-btn">Summarize Selection</button>
-    <span id="loading">⏳</span>
-    <div id="error"></div>
-    <div id="summary-result"></div>
+    <!-- Icon bar (tab navigation) -->
+<div class="icon-bar">
+      <button class="icon-btn active" id="summarize-tab" title="Summarize">
+        <!-- FileText Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-file-text">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <line x1="10" y1="9" x2="8" y2="9"/>
+        </svg>
+        <span>Summarize</span>
+      </button>
 
-    <hr />
+      <button class="icon-btn" id="actions-tab" title="Actions">
+        <!-- Zap Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-zap">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <span>Actions</span>
+      </button>
 
-    <h2>Actions for you</h2>
-    <button id="start-action-btn">See expected actions</button>
-    <div id="actions-result" class="chat-message ai"></div>
-
-    <hr />
-
-    <div id="chat-section">
-      <h2>Chat with Page</h2>
-      <button id="start-chat-btn">Start Chat</button> <small id="chat-status">(Inactive)</small>
-      <div style="margin-top: 8px;">
-        <input type="text" id="chat-input" placeholder="Ask a question about the page..." disabled />
-        <button id="chat-send-btn" disabled>Send</button>
-      </div>
-      <div id="chat-log"></div>
+      <button class="icon-btn" id="chat-tab" title="Chat">
+        <!-- MessageCircle Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="lucide lucide-message-circle">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/>
+        </svg>
+        <span>Chat</span>
+      </button>
     </div>
 
+    <!-- Single content area -->
+    <div id="content-area">
+      <!-- Summarize -->
+      <div id="summary-section" class="active">
+        <h3>Summarize</h3>
+        <button id="summarize-btn" class="action-btn">Summarize Selection</button>
+        <span id="loading">⏳</span>
+        <div id="error"></div>
+        <div id="summary-result"></div>
+      </div>
+
+      <!-- Actions -->
+      <div id="action-section">
+        <h3>Actions for You</h3>
+        <button id="start-action-btn" class="action-btn">See Expected Actions</button>
+        <div class="chat-message ai" id="actions-result"></div>
+      </div>
+
+      <!-- Chat -->
+      <div id="chat-section">
+        <h3>Chat with Page</h3>
+        <button id="start-chat-btn" class="action-btn">Start Chat</button>
+        <small id="chat-status">(Inactive)</small>
+        <div style="margin-top: 8px;">
+          <input
+            type="text"
+            id="chat-input"
+            placeholder="Ask a question about the page..."
+            disabled
+          />
+          <button id="chat-send-btn" disabled>Send</button>
+        </div>
+        <div id="chat-log"></div>
+      </div>
+    </div>
+
+    <!-- External JS file -->
     <script src="popup.js"></script>
   </body>
 </html>

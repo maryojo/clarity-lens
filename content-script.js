@@ -298,8 +298,22 @@ As part of the short description, add where/what page element the page visitor i
     "${pageText}"
   `);
 console.log('hallo', response);
+console.log('Raw AI response:', response);
+        
+        // ✅ CLEAN THE RESPONSE - Remove markdown code blocks
+        let cleaned = response
+            .replace(/```json\n?/gi, '')  // Remove ```json
+            .replace(/```\n?/gi, '')       // Remove closing ```
+            .trim();                        // Remove whitespace
+        
+        console.log('Cleaned response:', cleaned);
+        
+        // Parse JSON
+        const parsed = JSON.parse(cleaned);
+        console.log('Parsed data:', parsed);
+        
       
-      sendResponse({ status: 'ok', message: response });
+      sendResponse({ status: 'ok', message: parsed });
         } catch (err) {
             userActionsChatSession = null;
 console.log(err);
